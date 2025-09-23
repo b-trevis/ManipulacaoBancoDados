@@ -1,0 +1,174 @@
+---
+title: "Desafio 1 - ME315"
+author: "Bruce Trevisan"
+date: "2025-09-23"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# install.packages("tidyverse")
+# install.packages("dplyr")
+# install.packages("tidyr")
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+data()
+```
+
+```{r}
+table1
+table2
+table3
+table4a
+table4b
+```
+
+
+```{r}
+# 3. Calcular a taxa de ocorrência de tuberculose por 10.000 pessoas
+
+# Vamos criar a taxa dividindo os casos de tuberculose pela população e multiplicando por 10.000. Vamos supor que as colunas de interesse em table1 sejam cases e population.
+
+# Calcular a taxa de tuberculose por 10.000 pessoas
+taxas <- table1 %>%
+  mutate(taxa_por_10000 = (cases / population) * 10000)
+
+# Exibir a tabela com as taxas
+taxas
+```
+
+4. Número de casos de tuberculose por ano
+
+```{r}
+# Agrupar os dados por ano e somar os casos de tuberculose.
+
+casos_por_ano <- table1 %>%
+  group_by(year) %>%
+  summarise(total_casos = sum(cases, na.rm = TRUE))
+# Número de casos de tuberculose por ano
+casos_por_ano
+```
+
+5. Número de casos por país
+
+```{r}
+# Agrupar os dados por país e somar os casos.
+
+casos_por_pais <- table1 %>%
+  group_by(country) %>%
+  summarise(total_casos = sum(cases, na.rm = TRUE))
+# Número de casos de tuberculose por país
+casos_por_pais
+```
+
+6. Mudança no número de casos entre 1999 e 2000
+
+```{r}
+# Mudança no número de casos de tuberculose entre 1999 e 2000
+
+mudanca_1999_2000 <- table1 %>%
+  filter(year %in% c(1999, 2000)) %>%
+  group_by(country, year) %>%
+  summarise(total_casos = sum(cases, na.rm = TRUE)) %>%
+  spread(key = year, value = total_casos) %>%
+  mutate(mudanca = `2000` - `1999`)
+
+mudanca_1999_2000
+```
+
+7. Gráfico de linhas da taxa de casos por 10.000 habitantes estratificado por país
+
+```{r}
+# Gráfico de linhas para taxa de tuberculose por 10.000 habitantes
+
+ggplot(taxas, aes(x = year, y = taxa_por_10000, color = country)) +
+  geom_line() +
+  labs(title = "Taxa de tuberculose por 10.000 habitantes",
+       x = "Ano",
+       y = "Taxa por 10.000 habitantes") +
+  theme_minimal()
+```
+
+8. Calcular a taxa para table2 e table4a + table4b
+
+```{r}
+# 1. Extrair o número de casos por país e ano
+
+# 2. Extrair o tamanho da população
+
+# 3. Calcular a taxa de casos (por 10.000 pessoas)
+
+# 4. Armazenar o resultado em uma variável
+```
+
+8.a 
+
+```{r}
+table2_population <- table2 %>%
+  filter(type == "population")
+View(table2_population)
+```
+
+8.b Transformar table4a para formato tidy
+
+```{r}
+tidy4a <- table4a %>%
+  pivot_longer(cols = c(`1999`, `2000`), 
+               names_to = "year", 
+               values_to = "cases")
+View(tidy4a)
+```
+
+8.c Transformar table4b para formato tidy
+
+```{r}
+tidy4b <- table4b %>%
+  pivot_longer(cols = c(`1999`, `2000`),
+               names_to = "year",
+               values_to = "cases")
+View(tidy4b)
+```
+
+8.d Combinar as duas tabelas (table4a + table4b)
+
+```{r}
+combined <- left_join(tidy4a, tidy4b, by = c("country", "year"))
+View(combined)
+```
+
+Transformar table2 para formato wide
+
+```{r}
+table2_wide <- table2 %>%
+  pivot_wider(names_from = type, values_from = count)
+View(table2_wide)
+```
+
+Separar a coluna rate de table3
+
+```{r}
+table3_tidy <- table3 %>%
+  separate(rate, into = c("cases", "population"), sep = "/", convert = TRUE)
+table3_tidy
+```
+
+```{r}
+table3_tidy <- table3 %>%
+  separate(col = rate, 
+           into = c("cases", "population"), 
+           sep = "/", 
+           convert = TRUE)
+View(table3_tidy)
+```
