@@ -1,0 +1,156 @@
+---
+title: "Desafio 06- ME315"
+author: "Bruce Trevisan"
+format: pdf
+editor: visual
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("RSQLite")
+#install.packages("dplyr")
+```
+
+```{r}
+library(RSQLite)
+library(dplyr)
+```
+
+Utilizando o pacote RSQLite, conecte-se ao arquivo de banco de dados. Armazene a conexão na variável conn.
+
+```{r}
+conn <- dbConnect(SQLite(), "~/disco.db")
+conn
+```
+
+Liste as tabelas existentes no banco de dados.
+
+```{r}
+dbListTables(conn) # Tabelas existentes no bando de dados
+```
+
+Identifique os nomes de todas as colunas existentes na tabela customers.
+
+```{r}
+dbListFields(conn, 'customers') # Colunas existentes na tabela customers
+```
+
+Utilizando apenas SQLite, com o apoio do comando dbGetQuery, identifique quantos clientes estão atualmente cadastrados neste banco de dados.
+
+```{r}
+dbGetQuery(conn, "SELECT COUNT(*) AS total_clientes FROM customers")
+```
+
+Utilizando apenas SQLite, identifique o número de países diferentes em que moram os clientes encontrados acima.
+
+```{r}
+dbGetQuery(conn, "SELECT COUNT(DISTINCT country) AS num_paises FROM customers")
+```
+
+Utilizando apenas SQLite, quantos clientes existem por país? A tabela resultante deve conter o nome do país e a respectiva contagem, além de ser ordenada de maneira decrescente pela referida contagem.
+
+```{r}
+dbGetQuery(conn, "
+  SELECT country, COUNT(*) AS num_clientes
+  FROM customers
+  GROUP BY country
+  ORDER BY num_clientes DESC
+")
+```
+
+Quais são os 5 países com mais clientes registrados? Use apenas SQLite.
+
+```{r}
+dbGetQuery(conn, "
+  SELECT country, COUNT(*) AS num_clientes
+  FROM customers
+  GROUP BY country
+  ORDER BY num_clientes DESC
+  LIMIT 5 
+")
+```
+
+Quais são os países registrados que possuem apenas 6 letras no nome?
+
+```{r}
+dbGetQuery(conn, "
+  SELECT DISTINCT Country
+  FROM customers
+  WHERE LENGTH (Country) = 6; 
+")
+```
+
+Quais foram as músicas compradas por clientes brasileiros?
+
+```{r}
+mb <- dbGetQuery(conn, "
+  SELECT DISTINCT t.name AS musica
+  FROM customers c
+  INNER JOIN invoices i ON c.customerid = i.customerid
+  INNER JOIN invoice_items ii ON i.invoiceid = ii.invoiceid
+  INNER JOIN tracks t ON ii.trackid = t.trackid
+  WHERE c.country = 'Brazil'
+")
+print(head(mb, 10))
+
+```
+
+Qual o álbum mais tocado por pais ?
+
+```{r}
+dbGetQuery(conn, "
+      WITH AlbumPlays AS (
+        SELECT 
+            c.Country,
+            a.Title as Album,
+            COUNT(ii.InvoiceLineId) as total_plays,
+            RANK() OVER (PARTITION BY c.Country ORDER BY COUNT(ii.InvoiceLineId) DESC) as rank_album
+        FROM invoice_items ii
+        JOIN invoices i ON ii.InvoiceId = i.InvoiceId
+        JOIN customers c ON i.CustomerId = c.CustomerId
+        JOIN tracks t ON ii.TrackId = t.TrackId
+        JOIN albums a ON t.AlbumId = a.AlbumId
+        GROUP BY c.Country, a.AlbumId
+    )
+    SELECT Country, Album, total_plays
+    FROM AlbumPlays
+    WHERE rank_album = 1
+    ORDER BY Country
+")
+
+```
+
+Qual o artista mais tocado por pais?
+
+```{r}
+dbGetQuery(conn, "
+  WITH ArtistPlays AS (
+        SELECT 
+            c.Country,
+            ar.Name as Artista,
+            COUNT(ii.InvoiceLineId) as total_plays,
+            RANK() OVER (PARTITION BY c.Country ORDER BY COUNT(ii.InvoiceLineId) DESC) as rank_artista
+        FROM invoice_items ii
+        JOIN invoices i ON ii.InvoiceId = i.InvoiceId
+        JOIN customers c ON i.CustomerId = c.CustomerId
+        JOIN tracks t ON ii.TrackId = t.TrackId
+        JOIN albums a ON t.AlbumId = a.AlbumId
+        JOIN artists ar ON a.ArtistId = ar.ArtistId
+        GROUP BY c.Country, ar.ArtistId
+    )
+    SELECT Country, Artista, total_plays
+    FROM ArtistPlays
+    WHERE rank_artista = 1
+    ORDER BY Country
+")
+
+```
+
+Desconecte do banco de dados.
+
+```{r}
+dbDisconnect(conn)
+```
