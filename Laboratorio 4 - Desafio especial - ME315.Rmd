@@ -1,0 +1,166 @@
+---
+title: "Desafio especial (lab 04)"
+author: "Bruce Trevisan"
+date: "2025-09-24"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+# Carregar pacotes necessários
+library(tidyverse)
+library(readr)
+library(ggplot2)
+library(leaflet)
+library(shiny)
+library(DBI)
+```
+
+```{r}
+# Definir a função de callback
+processar_chunk <- function(df, pos) {
+  # Filtra apenas os voos do TAIL_NUMBER desejado
+  df_filtrado <- df %>%
+    filter(TAIL_NUMBER == "N431WN")  # <-- Aqui você pode colocar um valor fixo ou transformar em parâmetro depois
+  return(df_filtrado)
+}
+```
+
+```{r}
+# Ler por chunks de 100.000 linhas
+flights_filtrado <- read_csv_chunked(
+  file = "~/flights.csv.zip",
+  callback = DataFrameCallback$new(processar_chunk),
+  chunk_size = 100000
+)
+
+# Visualizar resultado
+head(flights_filtrado)
+```
+
+```{r}
+filtrar_por_tail_chunked <- function(arquivo_zip, tail_number, chunk_size = 100000) {
+  
+  # Função de callback interna
+  processar_chunk <- function(df, pos) {
+    df_filtrado <- df %>%
+      filter(TAIL_NUMBER == tail_number)
+    return(df_filtrado)
+  }
+  
+  # Leitura por chunk
+  flights_filtrado <- read_csv_chunked(
+    file = arquivo_zip,
+    callback = DataFrameCallback$new(processar_chunk),
+    chunk_size = chunk_size
+  )
+  
+  return(flights_filtrado)
+}
+
+# Testando a função
+resultado <- filtrar_por_tail_chunked("~/flights.csv.zip", "N431WN")
+view(resultado)
+```
+
+```{r}
+airports <- read_csv("airports.csv")
+```
+
+
+```{r}
+# Função completa
+analisar_aeronave <- function(arquivo_zip, tail_number, chunk_size = 100000) {
+  
+  # Callback de leitura filtrando o TAIL_NUMBER
+  processar_chunk <- function(df, pos) {
+    df_filtrado <- df %>%
+      filter(TAIL_NUMBER == tail_number)
+    return(df_filtrado)
+  }
+  
+  # Leitura dos chunks
+  voos <- read_csv_chunked(
+    file = arquivo_zip,
+    callback = DataFrameCallback$new(processar_chunk),
+    chunk_size = chunk_size
+  )
+  
+  # Ordenar por data e hora
+  voos2 <- voos %>%
+    mutate(FL_DATE = make_date(YEAR, MONTH, DAY)   # cria a coluna de data
+  ) %>%
+  arrange(FL_DATE) 
+  
+    # Ordenar por data e hora
+  voos2 <- voos %>%
+    mutate(FL_DATE = make_date(YEAR, MONTH, DAY)) %>%
+    arrange(FL_DATE) 
+  
+  airlines <- read_csv("airlines.csv")
+  airports <- read_csv("airports.csv")   # ajuste o caminho se precisar
+  voos2 <- voos2 %>%
+    left_join(airports %>%
+                select(IATA_CODE, ORIGIN_LAT = LATITUDE, ORIGIN_LONG = LONGITUDE),
+      by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+    left_join(airports %>%
+                select(IATA_CODE, DEST_LAT = LATITUDE, DEST_LONG = LONGITUDE),
+      by = c("DESTINATION_AIRPORT" = "IATA_CODE")
+    )
+
+  # Tabela tidy com todos os voos da aeronave
+  print(head(voos))
+  
+  # Estatística simples: velocidade média
+  estatisticas <- voos %>%
+    mutate(velocidade_media = DISTANCE / (AIR_TIME/60)) %>%
+    summarise(velocidade_media = mean(velocidade_media, na.rm = TRUE))
+  
+  print(estatisticas)
+  
+  return(list(tabela = voos, mapa = mapa, estatisticas = estatisticas))
+}
+```
+
+```{r}
+# Testando com N431WN
+resultado <- analisar_aeronave("~/flights.csv.zip", "N431WN")
+resultado$mapa
+```
+
+```{r}
+
+# Junta origem
+voos_origem <- flights_filtrado %>%
+  left_join(airports %>% select(IATA_CODE, LATITUDE, LONGITUDE),
+            by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+  rename(ORIGIN_LAT = LATITUDE, ORIGIN_LONG = LONGITUDE)
+
+# Junta destino
+voos <- voos_origem %>%
+  left_join(airports %>% select(IATA_CODE, LATITUDE, LONGITUDE),
+            by = c("DESTINATION_AIRPORT" = "IATA_CODE")) %>%
+  rename(DEST_LAT = LATITUDE, DEST_LONG = LONGITUDE)
+
+# Mapa simples
+mapa <- leaflet(voos) %>%
+  addTiles() %>%
+  addPolylines(
+    lng = ~c(ORIGIN_LONG, DEST_LONG),
+    lat = ~c(ORIGIN_LAT, DEST_LAT),
+    color = "blue",
+    weight = 1,
+    opacity = 0.5
+  ) %>%
+  addCircleMarkers(~ORIGIN_LONG, ~ORIGIN_LAT, radius = 2, color = "red") %>%
+  addCircleMarkers(~DEST_LONG, ~DEST_LAT, radius = 2, color = "green")
+
+mapa
+```
