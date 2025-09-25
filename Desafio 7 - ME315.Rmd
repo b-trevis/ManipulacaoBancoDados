@@ -1,0 +1,175 @@
+---
+title: "Desafio 7 - ME315"
+author: "Bruce Trevisan"
+date: "2025-09-18"
+output:
+  html_document:
+    df_print: paged
+  pdf_document:
+    latex_engine: lualatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+
+if(!"discoCopy.db" %in% list.files("~/")){
+file.copy("~/disco.db","~/discoCopy.db")
+} # Modificaremos esse arquivo
+```
+
+```{r}
+db <- dbConnect(SQLite(),"~/discoCopy.db")
+```
+
+```{r}
+dbListTables(db)
+```
+
+```{r}
+dbListFields(db,'instruments')
+```
+
+```{r}
+# ELIMINA A TABELA SELECIONADA
+# dbExecute(db,"DROP TABLE instruments")
+```
+
+```{r}
+dbListTables(db)
+```
+
+```{r}
+aname = "Gilberto Gil"
+sql = paste0("SELECT ArtistId FROM artists ",
+             "WHERE Name = '", aname,"'")
+aId = dbGetQuery(db, sql)
+sql = paste('SELECT Title FROM albums'
+            ,'WHERE ArtistId =', aId)
+dbGetQuery(db, sql)
+```
+
+```{r}
+sql = paste("SELECT ArtistId FROM artists",
+            "WHERE Name = ?")
+query <- dbSendQuery(db, sql)
+dbBind(query, list("Gilberto Gil"))
+aId <- dbFetch(query)
+dbClearResult(query)
+# Segundo passo interno, não deve causar problema
+sql = paste('SELECT Title FROM albums',
+            'WHERE ArtistId =', aId)
+dbGetQuery(db, sql)
+```
+
+```{r}
+dbListFields(db, 'instruments')
+```
+
+```{r}
+sql = paste('SELECT TrackId, Name FROM tracks',
+            'WHERE AlbumId = 85')
+dbGetQuery(db, sql) %>% head
+```
+
+```{r}
+dbExecute(db, "INSERT INTO instruments
+               VALUES ('85', '1075', 0, 1, 0),
+                      ('85', '1078', 0, 1, 0); ")
+```
+
+```{r}
+dbGetQuery(db,"SELECT * FROM instruments")
+```
+
+```{r}
+dbExecute(db, "DROP TABLE IF EXISTS mtcars")
+dbWriteTable(db,"mtcars", mtcars)
+dbListTables(db)
+```
+
+```{r}
+dbGetQuery(db,"SELECT * FROM mtcars") %>% head(3)
+```
+
+```{r}
+theAvgCar <- mtcars %>%
+  summarise_all(function(x) round(mean(x), 2))
+theAvgCar
+```
+
+```{r}
+dbWriteTable(db,"mtcars", theAvgCar, append = TRUE)
+dbGetQuery(db,"SELECT * FROM mtcars") %>% tail(3)
+```
+
+```{r}
+dbWriteTable(db,"mtcars", mtcars, overwrite = TRUE)
+dbGetQuery(db,"SELECT * FROM mtcars") %>% tail(3)
+```
+
+```{r}
+res <- dbSendQuery(db,"SELECT * FROM mtcars WHERE cyl = 4")
+while(!dbHasCompleted(res)){
+  chunk <- dbFetch(res, n = 5)
+  print(nrow(chunk))
+}
+```
+
+```{r}
+dbClearResult(res)
+```
+
+```{r}
+dbDisconnect(db)
+if("discoCopy.db" %in% list.files("~/")){
+  file.remove("~/discoCopy.db")
+}
+```
+
+```{r}
+airports <- read_csv("~/airports.csv", col_types = "cccccdd")
+airlines <- read_csv("~/airlines.csv", col_types = "cc")
+air <- dbConnect(SQLite(), dbname="~/air.db")
+dbWriteTable(air, name = "airports", airports)
+dbWriteTable(air, name = "airlines", airlines)
+dbListTables(air)
+```
+
+```{r}
+dbDisconnect(air)
+if("air.db" %in% list.files("~/")){
+  file.remove("~/air.db")
+}
+```
+
+```{r}
+db <- dbConnect(SQLite(),"~/disco.db") # original
+tracks <- tbl(db,"tracks") # dplyr
+tracks %>% head(3)
+```
+
+```{r}
+meanTracks <- tracks %>%
+  group_by(AlbumId) %>%
+  summarise(AvLen = mean(Milliseconds, na.rm = TRUE),
+            AvCost = mean(UnitPrice, na.rm = TRUE))
+meanTracks
+```
+
+```{r}
+meanTracks %>% show_query()
+```
+
+```{r}
+mT <- meanTracks %>% collect()
+mT
+```
+
+```{r}
+dbDisconnect(db)
+```
