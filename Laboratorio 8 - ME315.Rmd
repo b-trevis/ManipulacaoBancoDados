@@ -1,0 +1,104 @@
+---
+title: "Laboratorio 8 - ME315"
+author: "Bruce Trevisan"
+date: "2025-09-25"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(DBI)
+library(RSQLite)
+```
+
+```{r}
+# verificar as tabelas no banco de dados
+
+conn <- dbConnect(SQLite(), "~/archive/database.sqlite3")
+
+cat("Tabelas no arquivo:\n")
+print(dbListTables(conn))
+
+get_cols <- function(tbl) {
+  if (!(tbl %in% dbListTables(conn))) return(character(0))
+  dbGetQuery(conn, sprintf("PRAGMA table_info('%s')", tbl))$name
+}
+```
+
+```{r}
+# Consultar os professores que lecionaram disciplinas de Estatística
+query_professores <- "
+SELECT DISTINCT i.name AS professor
+FROM instructors i
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections sec ON t.section_uuid = sec.uuid
+JOIN course_offerings co ON sec.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+WHERE s.abbreviation = 'STAT';
+"
+professores_stat <- dbGetQuery(conn, query_professores)
+```
+
+```{r}
+# Quantidade de professores
+n_professores <- nrow(professores_stat)
+head(professores_stat, 5)
+n_professores
+```
+
+```{r}
+# Consultar o GPA médio dos oferecimentos de disciplinas de Estatística
+query_gpa <- "
+SELECT 
+  co.uuid AS course_offering_uuid,
+  co.name AS course_name,
+  i.name AS professor,
+  CAST(
+    (g.a_count * 4 + g.ab_count * 3.5 + g.b_count * 3 + g.bc_count * 2.5 + g.c_count * 2 + g.d_count * 1 + g.f_count * 0)
+    / 
+    (g.a_count + g.ab_count + g.b_count + g.bc_count + g.c_count + g.d_count + g.f_count)
+    AS FLOAT
+  ) AS gpa_medio
+FROM course_offerings co
+JOIN sections sec ON sec.course_offering_uuid = co.uuid
+JOIN teachings t ON t.section_uuid = sec.uuid
+JOIN instructors i ON t.instructor_id = i.id
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects s ON sm.subject_code = s.code
+JOIN grade_distributions g ON g.course_offering_uuid = co.uuid
+WHERE s.abbreviation = 'STAT';
+"
+gpa_oferecimentos <- dbGetQuery(conn, query_gpa)
+```
+
+
+```{r}
+# Identificar o professor mais difícil e o mais fácil
+professor_dificil <- gpa_oferecimentos[which.min(gpa_oferecimentos$gpa_medio), c("professor", "gpa_medio")]
+professor_facil <- gpa_oferecimentos[which.max(gpa_oferecimentos$gpa_medio), c("professor", "gpa_medio")]
+
+professor_dificil
+professor_facil
+```
+
+```{r}
+# Identificar a disciplina mais difícil e a mais fácil
+gpa_cursos <- aggregate(gpa_medio ~ course_name, data = gpa_oferecimentos, FUN = mean)
+disciplina_dificil <- gpa_cursos[which.min(gpa_cursos$gpa_medio), ]
+disciplina_facil <- gpa_cursos[which.max(gpa_cursos$gpa_medio), ]
+
+# Resultados das disciplinas
+disciplina_dificil
+disciplina_facil
+```
+
+
+```{r}
+dbDisconnect(conn)
+```
