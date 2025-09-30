@@ -1,0 +1,103 @@
+---
+title: "Desafio 9"
+author: "Bruce Trevisan"
+date: "2025-09-30"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+# PACOTES NECESSARIOS
+
+# install.packages(c("readr", "RSQLite", "dplyr"), dep=TRUE,type='win.binary')
+```
+
+```{r}
+library(readr)
+library(RSQLite)
+library(dplyr)
+```
+
+```{r}
+con <- dbConnect(SQLite(), dbname = "voos.sqlite3")
+
+dbListTables(con)
+```
+
+```{r}
+# Ler os arquivos CSV
+airlines <- read_csv("airlines.csv")
+airports <- read_csv("airports.csv")
+```
+
+```{r}
+dbWriteTable(con, "airlines", airlines, overwrite = TRUE)
+dbWriteTable(con, "airports", airports, overwrite = TRUE)
+```
+
+```{r}
+dbListTables(con)
+```
+
+```{r}
+head(dbReadTable(con, "airlines"))
+head(dbReadTable(con, "airports"))
+```
+
+```{r}
+lerDados <- function(input, pos) {
+  message("Leitura atingiu a linha ", pos)
+
+  voos_filtrados <- input %>%
+    filter(ORIGIN_AIRPORT %in% c("BWI", "MIA", "SEA", "SFO", "JFK") |
+           DESTINATION_AIRPORT   %in% c("BWI", "MIA", "SEA", "SFO", "JFK"))
+  
+  dbWriteTable(con,
+               name = "flights",
+               value = voos_filtrados,
+               append = TRUE,
+               row.names = FALSE)
+  
+  invisible(NULL)
+}
+```
+
+```{r}
+voos <- read_csv_chunked("flights_pasta/flights.csv",
+                 callback = SideEffectChunkCallback$new(lerDados),
+                 chunk_size = 10000)
+```
+
+```{r}
+comando <- "
+SELECT 
+    f.DESTINATION_AIRPORT AS sigla_aeroporto,
+    a.AIRPORT AS nome_aeroporto,
+    al.AIRLINE AS nome_companhia,
+    AVG(f.ARRIVAL_DELAY) AS atraso_medio
+FROM flights f
+JOIN airports a
+    ON f.DESTINATION_AIRPORT = a.IATA_CODE
+JOIN airlines al
+    ON f.AIRLINE = al.IATA_CODE
+GROUP BY f.DESTINATION_AIRPORT, a.AIRPORT, al.AIRLINE
+ORDER BY atraso_medio DESC
+"
+
+resultado <- dbGetQuery(con, comando)
+
+head(resultado, 20) 
+```
+
+```{r}
+horario_normal <- function(timestamp = Sys.time()) {
+  format(timestamp, "%d/%m/%Y %H:%M:%S")
+}
+
+cat("Arquivo compilado em:", horario_normal(), "\n")
+```
+
+```{r}
+# dbDisconnect(con)
+```
