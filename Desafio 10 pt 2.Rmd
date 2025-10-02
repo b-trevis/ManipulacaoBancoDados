@@ -1,0 +1,131 @@
+---
+title: "Desafio pt 2"
+author: "Bruce Trevisan"
+date: "2025-10-02"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{python}
+import polars as pl
+```
+
+```{python}
+# Criando DataFrames
+clientes = pl.DataFrame({
+    "cliente_id": [1, 2, 3, 4],
+    "nome": ["Ana", "Bruno", "Clara", "Daniel"]
+})
+
+print(clientes)
+```
+
+```{python}
+# df com 5 pedidos
+pedidos = pl.DataFrame({
+    "pedido_id": [101, 102, 103, 104, 105],
+    "cliente_id": [1, 2, 3, 1, 5],
+    "valor": [100.50, 250.75, 75.00, 130.00, 79.00]
+})
+
+print(pedidos)
+```
+
+```{python}
+# junta clientes e pedidos tendo os dados que aparece nas 2 tabelas
+res_ij = clientes.join(pedidos, on="cliente_id", how="inner")
+print(res_ij)
+```
+
+```{python}
+# traz todos os clientes, mesmo que não tenham pedidos
+res_lj = clientes.join(pedidos, on="cliente_id", how="left")
+print(res_lj)
+```
+
+```{python}
+# traz todos os pedidos, mesmo que o cliente não exista na tabela de clientes
+res_rj = clientes.join(pedidos, on="cliente_id", how="right")
+print(res_rj)
+```
+
+```{python}
+# junta tudo, trazendo clientes sem pedidos e pedidos sem clientes
+res_oj = clientes.join(pedidos, on="cliente_id", how="outer")
+print(res_oj)
+```
+
+```{python}
+# produto cartesiano (combina cada cliente com cada pedido)
+res_cj = clientes.join(pedidos, how="cross")
+print(res_cj)
+```
+
+# P1: Qual é o valor médio das compras realizadas para cada cliente identificado?
+
+```{python}
+print(clientes)
+
+print(pedidos)
+```
+
+```{python}
+# calcula a média do valor dos pedidos por cliente
+res = res_ij.group_by(["nome","cliente_id"]).agg(pl.col("valor").mean())
+print(res)
+```
+
+# P2: Informe os nomes e a quantidade de compras com valor mínimo de $100.00 realizadas por cada cliente.
+
+```{python}
+# marca se o valor é maior que 100 e depois soma os valores por cliente.
+res = (res_oj.with_columns(pl.col("valor") > 100)
+       .group_by("nome")
+       .agg(pl.col("valor").sum()))
+print(res)
+```
+
+```{python}
+# Cria duas tabelas (vendas e detalhes_pedidos) para depois cruzar as informações
+vendas = pl.DataFrame({
+    "id_venda": [1, 2, 3],
+    "id_cl": [1, 2, 1],
+    "id_prod": [101, 102, 103],
+    "qtde": [2, 1, 1]
+})
+
+detalhes_pedidos = pl.DataFrame({
+    "id_ped": [201, 202, 203],
+    "cl_id": [1, 2, 1],
+    "id_prod": [101, 102, 104],
+    "valor": [50.00, 75.00, 100.00]
+})
+```
+
+```{python}
+print(vendas)
+
+print(detalhes_pedidos)
+```
+
+```{python}
+# junta as duas tabelas só quando id_cl = cl_id e id_prod batem, trazendo só as correspondências
+final = vendas.join(detalhes_pedidos,
+                    left_on = ["id_cl", "id_prod"],
+                    right_on = ["cl_id", "id_prod"],
+                    how = "inner")
+print(final)
+```
+
+```{r}
+horario_normal <- function(timestamp = Sys.time()) {
+  format(timestamp, "%d/%m/%Y %H:%M:%S")
+}
+
+cat("Arquivo compilado em:", horario_normal(), "\n")
+```
