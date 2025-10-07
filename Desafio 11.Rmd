@@ -1,0 +1,180 @@
+---
+title: "Introdução aos polars"
+author: "Bruce Trevisan"
+date: "2025-10-07"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{python}
+import polars as pl
+import matplotlib.pyplot as plt
+```
+
+# fazer o upload das colunas a mão, porque o arquivo não tem cabeçalho
+
+```{python} 
+colunas = [
+    "age", "workclass", "fnlwgt", "education", "education_num",
+    "marital_status", "occupation", "relationship", "race", "sex",
+    "capital_gain", "capital_loss", "hours_per_week", "native_country", "income"
+]
+```
+
+# tipos de cada coluna
+
+```{python}
+schema = {
+    "age": pl.Float64,
+    "workclass": pl.Categorical,
+    "fnlwgt": pl.Float64,
+    "education": pl.Categorical,
+    "education_num": pl.Float64,
+    "marital_status": pl.Categorical,
+    "occupation": pl.Categorical,
+    "relationship": pl.Categorical,
+    "race": pl.Categorical,
+    "sex": pl.Categorical,
+    "capital_gain": pl.Float64,
+    "capital_loss": pl.Float64,
+    "hours_per_week": pl.Float64,
+    "native_country": pl.Categorical,
+    "income": pl.Categorical
+}
+```
+
+# lê o dataset comprimido, define nomes e tipos das colunas, trata valores faltantes e dá uma visão inicial do conteúdo e da estrutura do df
+
+```{python}
+renda_adulta = pl.read_csv(
+    "renda_adulta.csv.gz",
+    has_header=False, 
+    new_columns=colunas,  
+    schema=schema, 
+    null_values="?"
+)
+
+renda_adulta.head()
+
+renda_adulta.schema
+```
+
+# tipos de cada coluna
+
+```{python}
+print(renda_adulta.schema)
+```
+
+# dimensões da tabela
+
+```{python}
+print(renda_adulta.shape)
+```
+
+# quantas pessoas ganham acima de $50.000 e abaixo de $50.000
+
+```{python}
+acima_50k = renda_adulta.filter(pl.col("income") == ">50K").height
+abaixo_50k = renda_adulta.filter(pl.col("income") == "<=50K").height
+
+print(f"Pessoas com renda > $50.000: {acima_50k}")
+print(f"Pessoas com renda <= $50.000: {abaixo_50k}")
+```
+
+# ele “derrete” as colunas de capital gain e loss em duas colunas (tipo e valor), mantendo todas as demais informações de cada pessoa, para análise em formato longo
+
+```{python}
+renda_longo = renda_adulta.melt(
+    id_vars=[  
+        "age", "workclass", "fnlwgt", "education", "education_num",
+        "marital_status", "occupation", "relationship", "race", "sex",
+        "hours_per_week", "native_country", "income"
+    ],
+    value_vars=["capital_gain", "capital_loss"],  
+    variable_name="tipo",  
+    value_name="Valor"    
+)
+
+renda_longo.head()
+```
+
+# agrupa as pessoas conforme classe salarial e calcula a média 
+
+```{python}
+renda_adulta.group_by("income").agg(
+    pl.col("hours_per_week").mean().alias("media_horas")
+)
+```
+
+# quantas pessoas tem por profissão
+
+```{python}
+renda_adulta.group_by("occupation").agg(
+    pl.count().alias("quantidade_pessoas")
+).sort("quantidade_pessoas", descending=True)
+```
+
+# média de horas por classe salarial
+
+```{python}
+media_horas = (
+    renda_adulta.group_by("income")
+    .agg(pl.col("hours_per_week").mean().alias("media_horas"))
+)
+```
+
+# converter pra pandas (facilita na execução dos graficos)
+
+```{python}
+media_horas_pd = media_horas.to_pandas()
+```
+
+# criação do gráfico de barras
+
+```{python}
+plt.bar(media_horas_pd["income"], media_horas_pd["media_horas"], color=["#1f77b4", "#ff7f0e"])
+plt.xlabel("Classe Salarial")
+plt.ylabel("Média de Horas por Semana")
+plt.title("Média de Horas Trabalhadas por Classe Salarial")
+plt.show()
+```
+
+# tabela de contingência: sexo x classe salarial
+
+```{python}
+
+contagem_genero = (
+    renda_adulta.group_by(["sex", "income"])
+    .agg(pl.count().alias("quantidade"))
+    .sort(["sex", "income"])
+)
+contagem_genero
+```
+
+# calcula a disparidade salarial entre gêneros, mostrando quantas pessoas de cada sexo ganham acima de $50.000 e qual a proporção percentual, permitindo identificar evidências de possível discriminação salarial.
+
+```{python}
+total_por_sexo = renda_adulta.group_by("sex").agg(pl.count().alias("total"))
+
+acima_50k = (
+    renda_adulta.filter(pl.col("income") == ">50K")
+    .group_by("sex")
+    .agg(pl.count().alias("acima_50k"))
+)
+
+proporcao = total_por_sexo.join(acima_50k, on="sex")
+proporcao = proporcao.with_columns(
+    (pl.col("acima_50k") / pl.col("total") * 100).alias("percentual_acima_50k")
+)
+proporcao
+```
+
+```{r}
+horario_normal <- function(timestamp = Sys.time()) {
+  format(timestamp, "%d/%m/%Y %H:%M:%S")
+}
+
+cat("Arquivo compilado em:", horario_normal(), "\n")
+```
+
