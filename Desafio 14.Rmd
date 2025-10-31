@@ -1,0 +1,77 @@
+---
+title: "Desafio 14 - ME315"
+author: "Bruce Trevisan"
+date: "2025-10-31"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# 1. Importar o conjunto de dados e bibliotecas
+
+```{python}
+import pandas as pd
+from plotnine import ggplot, aes, geom_point, geom_smooth, labs, theme_minimal, coord_cartesian, facet_wrap, theme_light, theme, facet_grid, theme_bw, element_text
+from plotnine.data import diamonds
+```
+
+```{python}
+diamonds.head()
+```
+
+# 2. Associação entre peso (carat) e preço (price)
+
+```{python}
+(ggplot(diamonds,aes(x='carat', y='price')) +
+geom_point(alpha=0.3, color='steelblue') +
+geom_smooth(method='lm', color='red', se=False) +
+labs(title='Relação entre peso (carat) e preço (price)',
+     x='Peso (carat)',
+     y='Preço (USD)') +
+coord_cartesian(ylim=(0, 21000)) +
+theme_minimal())
+```
+
+O gráfico revela uma relação positiva nítida entre peso (carat) e preço do diamante. A dispersão do preço aumenta com o peso, evidenciando a influência de outros atributos (corte, clareza).
+
+# 3. Relação entre preço e peso considerando corte (cut)
+
+```{python}
+(ggplot(diamonds, aes(x='carat', y='price', color='cut')) +
+ geom_point(alpha=0.3) +
+ geom_smooth(method='lm', color='black', se=False) +
+ facet_wrap('~cut') +
+ labs(title='Relação entre preço e peso por tipo de corte',
+      x='Peso (carat)',
+      y='Preço (USD)') +
+ coord_cartesian(ylim=(0, 21000)) +
+ theme_light() +
+ theme(legend_position='none'))
+```
+
+A relação entre preço e peso se mantém positiva em todos os tipos de corte, mas o grau dessa relação varia. Diamantes com cortes de melhor qualidade, como Ideal e Premium, tendem a apresentar preços mais altos para o mesmo peso. Isso indica que o corte tem um papel significativo na precificação, além do peso.
+
+# 4. Relação entre preço e peso considerando corte, cor e clareza
+
+```{python}
+(ggplot(diamonds, aes(x='carat', y='price', color='color')) +
+ geom_point(alpha=0.3) +
+ geom_smooth(method='lm', se=False) +
+ facet_grid('cut ~ clarity') +
+ labs(title='Preço vs Peso por corte, cor e clareza',
+      x='Peso (carat)',
+      y='Preço (USD)',
+      color='Cor') +
+ coord_cartesian(ylim=(0, 21000)) +
+ theme_bw() +
+ theme(
+     axis_text_x=element_text(rotation=45, hjust=1),
+     figure_size=(14, 8)
+ ))
+```
+
+Ao incluir as variáveis de corte, cor e clareza, percebe-se que a relação entre peso e preço continua positiva, mas apresenta diferentes padrões de inclinação e dispersão. Diamantes de cor mais pura (D, E) e clareza mais alta (IF, VVS1) tendem a ser mais caros para o mesmo peso. A principal dificuldade foi o excesso de combinações (5 cortes × 7 claridades = 35 painéis), tornando o gráfico denso. A solução foi usar facet_grid com tamanho ajustado e transparência nos pontos para manter a legibilidade.
+
+# Resumo Final
+
+Neste laboratório, foi analisada a relação entre o peso e o preço dos diamantes do conjunto diamonds. Observou-se uma forte correlação positiva entre essas variáveis, reforçando que o peso é um dos principais determinantes do preço. Entretanto, a influência de características como corte, cor e clareza modifica significativamente essa relação. Cortes de maior qualidade e maior pureza óptica elevam o preço, mesmo em diamantes de mesmo peso. As técnicas de visualização com plotnine permitiram explorar essas nuances de forma clara e eficiente, utilizando camadas, facetas e ajustes estéticos adequados.
