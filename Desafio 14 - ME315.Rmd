@@ -76,3 +76,10 @@ Ao incluir as variáveis de corte, cor e clareza, percebe-se que a relação ent
 
 Neste laboratório, foi analisada a relação entre o peso e o preço dos diamantes do conjunto diamonds. Observou-se uma forte correlação positiva entre essas variáveis, reforçando que o peso é um dos principais determinantes do preço. Entretanto, a influência de características como corte, cor e clareza modifica significativamente essa relação. Cortes de maior qualidade e maior pureza óptica elevam o preço, mesmo em diamantes de mesmo peso. As técnicas de visualização com plotnine permitiram explorar essas nuances de forma clara e eficiente, utilizando camadas, facetas e ajustes estéticos adequados.
 
+```{r}
+horario_normal <- function(timestamp = Sys.time()) {
+  format(timestamp, "%d/%m/%Y %H:%M:%S")
+}
+
+cat("Arquivo compilado em:", horario_normal(), "\n")
+```
